@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+  </head>
+  <body>
+    <canvas id="example" width="200" height="150">
+    </canvas>
+    <form name="myForm">
+        <div>
+            <p>Nhập Biểu Thức</p>
+            <input type="text" name="bt" />
+
+            <p>Kết Quả</p>
+            <input type="text" name="kq" />
+        </div>
+        <input type="button" onclick="kqra()" value="Tính Toán" />
+    </form>
+    
+    <div style="display:flex">
+        <form name = "myFormInput" style="margin-right:20px;">
+            <h3>Mẫu điền thông tin</h3>
+            <div>
+                <label>Họ tên</label>
+                <input type="text" size="30" name="ht"/>
+            </div>
+            <div>
+                <label>Địa Chỉ</label>
+                <input type="text" size="29" name="dc"/>
+            </div>
+            <div>
+                <label>SDT</label>
+                <input type="text" size="32" name="sdt"/>
+            </div>
+    
+            <button type="button" onclick="outputThongTin()">Xuất</button>
+        </form>
+
+        <form>
+            <h2>Thông Tin Cá Nhân</h2>
+            <div>
+                <label id="ht">Họ Tên:</label>
+            </div>
+            <div>
+                <label id="dc">Địa Chỉ:</label>
+            </div>
+            <div>
+                <label id="sdt">SĐT:</label>
+            </div>
+        </form>
+    </div>
+    <script src="index.js"></script>
+  </body>
+</html>
