@@ -9,7 +9,13 @@ var VSHADER_SOURCE =
 
 // Fragment shader program
 var FSHADER_SOURCE =
-  "void main() {\n" + "  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);\n" + "}\n";
+`
+    precision mediump float;
+    uniform vec4 u_color;
+    void main() {   
+        gl_FragColor = u_color; 
+    }
+`;
 
 function main() {
     // Retrieve <canvas> element
@@ -37,8 +43,14 @@ function main() {
         return;
     }
 
+
+    var u_color = gl.getUniformLocation(gl.program, "u_color");
+    if (u_color < 0) {
+        console.log("Failed to get the storage location of a_Position");
+        return;
+    }
     canvas.onmousedown = function(ev){
-        click(ev,gl,canvas,a_Position,a_Size);
+        click(ev,gl,canvas,a_Position,a_Size,u_color);
     }
 
     // Pass vertex position to attribute variable
@@ -57,7 +69,7 @@ function main() {
 
 let g_points = []; //mảng lưu các điểm
 //hàm xử lý sự kiện khi click
-function click(ev,gl,canvas,a_Position,a_Size){
+function click(ev,gl,canvas,a_Position,a_Size,u_color){
     let x = ev.clientX ; //tọa độ x của trỏ chuột gốc là ở góc trên trái màn hình
     let y = ev.clientY ; //tọa độ y của trỏ chuột
     let rect = ev.target.getBoundingClientRect();
@@ -75,6 +87,7 @@ function click(ev,gl,canvas,a_Position,a_Size){
     for(let i = 0;i<g_points.length;i += 2 ){
         gl.vertexAttrib3f(a_Position, g_points[i],g_points[i+1],0.0);
         gl.vertexAttrib1f(a_Size, 20.0);
+        gl.uniform4f(u_color,1.0,1.0,0.0,1.0);
         gl.drawArrays(gl.POINTS,0,1);
     }
 }

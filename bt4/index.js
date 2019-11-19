@@ -1,9 +1,11 @@
 //tạo vị trí bằng ngôn ngữ tô bóng
+//uniform để truyền đồng nhất tất cả vào các điểm ảnh
 let VSHADER_SOURCE = 
 `
+    uniform vec4 u_Translation;
     attribute vec4 a_Position;
     void main(){
-        gl_Position = a_Position;
+        gl_Position = a_Position + u_Translation;
     }
 `;
 //tạo màu bằng ngôn ngữ tô bóng
@@ -13,6 +15,8 @@ let FSHADER_SOURCE =
         gl_FragColor = vec4(1.0,1.0,0.0,1.0);
     }
 `;
+let Tx = 0.5,Ty = 0.5,Tz = 0.0;
+
 
 function main(){
     //lấy đối tượng canvas thông qua Id
@@ -30,6 +34,13 @@ function main(){
     //thiết lập vị trí các đỉnh
     let n = initVertexBuffers(gl);
 
+    let u_Translation = gl.getUniformLocation(gl.program,'u_Translation');
+    if(!u_Translation){
+        console.log("Lỗi u_Translation");
+        return;
+    }
+
+    gl.uniform4f(u_Translation,Tx,Ty,Tz,0.0);
 
     //thiết lập màu nền cho canvas
     gl.clearColor(0.0,0.0,0.0,1.0);
