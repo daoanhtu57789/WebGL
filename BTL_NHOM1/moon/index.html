@@ -62,6 +62,7 @@
     function initGL(canvas) {
         try {
             gl = canvas.getContext("experimental-webgl");
+            //thiết lập view nhìn
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
@@ -417,7 +418,7 @@
 <body onload="webGLStart();">
     <a href="http://learningwebgl.com/blog/?p=1253">&lt;&lt; Back to Lesson 11</a><br />
 
-    <canvas id="lesson11-canvas" style="border: none;" width="500" height="500"></canvas>
+    <canvas id="lesson11-canvas" style="border: none;" width="1000" height="650"></canvas>
     <br/>
 
     <input type="checkbox" id="lighting" checked /> Use lighting<br/>
