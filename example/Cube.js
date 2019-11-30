@@ -1,21 +1,21 @@
 // #region SHADER PROGRAMS
 var VSHADER_SOURCE =
-  'attribute vec4 a_Position;\n' +
-  'attribute vec4 a_Normal;\n' +
-  'attribute vec2 a_TexCoord;\n' +
+  'attribute vec4 a_Position;\n' + //vecto vị trí 
+  'attribute vec4 a_Normal;\n' + //vecto thường
+  'attribute vec2 a_TexCoord;\n' + //phối màu
 
-  'uniform mat4 u_MvpMatrix;\n' +
-  'uniform mat4 u_ModelMatrix;\n' +
-  'uniform mat4 u_NormalMatrix;\n' +
+  'uniform mat4 u_MvpMatrix;\n' +//ma trận di chuyển
+  'uniform mat4 u_ModelMatrix;\n' +//ma trận mẫu
+  'uniform mat4 u_NormalMatrix;\n' + //ma trận thường
 
-  'varying vec3 v_Position;\n' +
+  'varying vec3 v_Position;\n' + //biến này sẽ ánh xạ sang Fshader
   'varying vec3 v_Normal;\n' +
   'varying vec2 v_TexCoord;\n' +
 
   'void main() {\n' +
-  '  gl_Position = u_MvpMatrix * a_Position;\n' +
+  '  gl_Position = u_MvpMatrix * a_Position;\n' + //di chuyển theo ma trận di chuyển
 
-  '  v_Position = vec3(u_ModelMatrix * a_Position);\n' +
+  '  v_Position = vec3(u_ModelMatrix * a_Position);\n' + 
 
   '  v_TexCoord = a_TexCoord;\n' +
 
@@ -26,14 +26,14 @@ var FSHADER_SOURCE =
   '#define PI 3.141592654;\n' +
   'precision mediump float;\n' +
 
-  'uniform sampler2D u_Sampler;\n' +// texture
-  'uniform vec4 u_LightDirection;\n' + // Light direction (in the world coordinate, normalized)
-  'uniform vec3 u_LightPosition;\n' +
+  'uniform sampler2D u_Sampler;\n' +// texture = kết cấu 
+  'uniform vec4 u_LightDirection;\n' + // Light direction = Hướng ánh sáng (in the world coordinate, normalized)
+  'uniform vec3 u_LightPosition;\n' + // vị trí sáng
   'uniform vec3 u_LightColor;\n' + // Light color
   'uniform float u_Intensity;\n' + // Cuong do sang
   'uniform vec3 u_AmbientLight;\n' + // Ambient light color
 
-  'varying vec3 v_Position;\n' +
+  'varying vec3 v_Position;\n' + //lấy dữ liệu từ hàm Vshader
   'varying vec3 v_Normal;\n' +
   'varying vec2 v_TexCoord;\n' +
 
@@ -71,6 +71,8 @@ function main() {
     console.log('Failed to intialize shaders.');
     return;
   }
+
+  console.log(texProgram);
 
   texProgram.a_Position = gl.getAttribLocation(texProgram, 'a_Position');
   texProgram.a_Normal = gl.getAttribLocation(texProgram, 'a_Normal');
