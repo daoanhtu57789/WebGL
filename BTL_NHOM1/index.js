@@ -27,6 +27,7 @@ function main() {
   }
 
   //thiết lập vị trí các đỉnh
+  
   for (let i = 0; i <= 91; i++) {
     let n = initVertexBuffers(gl);
     let modelMatrix = new Matrix4();
@@ -40,6 +41,7 @@ function main() {
 
     gl.drawArrays(gl.TRIANGLE_FAN, 0, n);
   }
+ 
 }
 
 function initVertexBuffers(gl) {
