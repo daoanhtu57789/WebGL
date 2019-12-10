@@ -63,6 +63,7 @@ function main() {
 
 }
 
+
 function draw(gl,n,currentAngle,mvpMatrix,u_MvpMatrix){
 	mvpMatrix.setLookAt(0, 0, 20, 0, 0, 0, 1, 5, 0);
 	mvpMatrix.setRotate(currentAngle,0.0,0.0,1.0);
@@ -95,7 +96,7 @@ function initVertexBuffers(gl) { // Create a sphere
 	var j, aj, sj, cj;
 	var p1, p2;
   
-	var positions = [];
+	let positions = [];
 	var indices = [];
   
 	// Generate coordinates
@@ -111,9 +112,10 @@ function initVertexBuffers(gl) { // Create a sphere
 			positions.push(si * sj/ 10);  // X
 			positions.push(cj /10 );       // Y
 			positions.push(ci * sj / 10);  // Z
+
 	  }
 	}
-
+	console.log(positions);
 	// positions.push(positions[positions.length-3]);  // X
 	// positions.push(positions[positions.length-2]);
 	// positions.push(positions[positions.length-1]);
@@ -150,22 +152,6 @@ function initVertexBuffers(gl) { // Create a sphere
 			indices.push(p2 + 1);
 		}
 	}
-
-	for (j = 0; j < SPHERE_DIV; j++) {
-		for (i = 0; i < SPHERE_DIV; i++) {
-			p1 = j * (SPHERE_DIV+1) + i;
-			p2 = p1 + (SPHERE_DIV+1);
-	
-			indices.push(p1);
-			indices.push(p2);
-			indices.push(p1 + 1);
-	
-			indices.push(p1 + 1);
-			indices.push(p2);
-			indices.push(p2 + 1);
-		}
-	}
-  
 	// Write the vertex property to buffers (coordinates and normals)
 	// Same data can be used for vertex and normal
 	// In order to make it intelligible, another buffer is prepared separately
@@ -183,7 +169,7 @@ function initVertexBuffers(gl) { // Create a sphere
 	}
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-  
+
 	return indices.length;
   }
 
@@ -203,16 +189,16 @@ function initArrayBuffer(gl, attribute, data, type, num) {
 		console.log('Failed to get the storage location of ' + attribute);
 		return false;
 	}
-	let FSIZE = data.BYTES_PER_ELEMENT;
-	gl.vertexAttribPointer(a_attribute, num, type, false, FSIZE*6, 0);
+	//let FSIZE = data.BYTES_PER_ELEMENT;
+	gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);
 
 	// Enable the assignment of the buffer object to the attribute variable
 	gl.enableVertexAttribArray(a_attribute);
 	
-	gl.vertexAttribPointer(a_attribute, num, type, false, FSIZE*6, 3);
+	// gl.vertexAttribPointer(a_attribute, num, type, false, FSIZE*6, FSIZE*3);
 
-	// Enable the assignment of the buffer object to the attribute variable
-	gl.enableVertexAttribArray(a_attribute);
+	// // Enable the assignment of the buffer object to the attribute variable
+	// gl.enableVertexAttribArray(a_attribute);
   
 	gl.bindBuffer(gl.ARRAY_BUFFER, null);
   
