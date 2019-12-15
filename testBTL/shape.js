@@ -4,14 +4,13 @@ var VSHADER_SOURCE =
 
 	attribute vec2 aTextureCoord;
 
-	uniform mat4 uMVMatrix;
-	uniform mat4 uPMatrix;
+	uniform mat4 u_ModelMatrix;
+	uniform mat4 u_ViewMatrix;
 
 	varying vec2 vTextureCoord;
 
-
 	void main(void) {
-		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+		gl_Position =u_ViewMatrix * u_ModelMatrix *  vec4(aVertexPosition, 1.0);
 		vTextureCoord = aTextureCoord;
 	}
 `;
@@ -36,11 +35,47 @@ var FSHADER_SOURCE =
 
 var gl;
 var shaderProgram;
-
+var ANGLE_STEP = 45;
+var g_eyeX = 0.0 ,g_eyeY = 0.0 ,g_eyeZ = 0.5;
 function main() {
 	// Retrieve <canvas> element
 	var canvas = document.getElementById('webgl');
-  
+	document.onkeydown = ev => {
+		console.log(ev.keyCode);
+		switch(ev.keyCode){
+			
+			case 37:
+				if(-0.5>g_eyeX && g_eyeX > -1.0){
+					g_eyeX -=0.05;
+					break;
+				}
+				g_eyeX = 0.0;
+				break;
+			case 38:
+				if(0.5<g_eyeY<1.0){
+					g_eyeY +=0.05;
+					break;
+				}
+				g_eyeY = 0.0;
+				break;
+			case 39:
+				if(0.5<g_eyeX<1.0){
+					g_eyeX +=0.05;
+					break;
+				}
+				g_eyeX = 0.0;
+				break;
+			case 40:
+				if(-1 < g_eyeY && g_eyeY< -0.5){
+					g_eyeY -=0.05;
+					break;
+				}
+				g_eyeY = 0.0;
+				break;
+			default:
+				break;
+		}
+	}
 	// Get the rendering context for WebGL
 	gl = getWebGLContext(canvas);
 	gl.viewportWidth = canvas.width;
@@ -61,9 +96,10 @@ function main() {
 	shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
 	gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
-	shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
-	shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
-	
+	shaderProgram.u_ModelMatrix = gl.getUniformLocation(shaderProgram, "u_ModelMatrix");
+
+	shaderProgram.u_ViewMatrix = gl.getUniformLocation(shaderProgram, "u_ViewMatrix");
+
 	shaderProgram.colorMapSamplerUniform = gl.getUniformLocation(shaderProgram, "uColorMapSampler");
 
 	
@@ -90,7 +126,7 @@ function handleLoadedTexture(texture) {
 
 
 var earthColorMapTexture;
-
+var moonColorMapTexture;
 function initTextures() {
 	earthColorMapTexture = gl.createTexture();
 	earthColorMapTexture.image = new Image();
@@ -98,23 +134,29 @@ function initTextures() {
 		handleLoadedTexture(earthColorMapTexture)
 	}
 	earthColorMapTexture.image.src = "earth.jpg";
+
+	moonColorMapTexture = gl.createTexture();
+        moonColorMapTexture.image = new Image();
+        moonColorMapTexture.image.onload = function () {
+            handleLoadedTexture(moonColorMapTexture)
+        }
+
+    moonColorMapTexture.image.src = "moon.gif";
 }
 
-var mvMatrix = mat4.create();
+var viewMatrix = new Matrix4();
 
-var pMatrix = mat4.create();
-
+var modelMatrix= new Matrix4();
 
 // Ma trận biến đổi tọa độ
 function setMatrixUniforms() {
-	gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+	viewMatrix.setLookAt(g_eyeX,g_eyeY,g_eyeZ,0,0,0,0,1,0);
+	
+	gl.uniformMatrix4fv(shaderProgram.u_ModelMatrix,false,modelMatrix.elements);
+	gl.uniformMatrix4fv(shaderProgram.u_ViewMatrix,false,viewMatrix.elements);
 
 }
 
-function degToRad(degrees) {
-	return degrees * Math.PI / 180;
-}
 var sphereVertexTextureCoordBuffer1;
 var sphereVertexPositionBuffer1;
 var sphereVertexIndexBuffer1;
@@ -122,7 +164,6 @@ var sphereVertexIndexBuffer1;
 function initBuffers1() {
 	var latitudeBands = 30;
 	var longitudeBands = 30;
-	var radius = 13;
 
 	var vertexPositionData = [];
 
@@ -146,9 +187,9 @@ function initBuffers1() {
 			
 			textureCoordData.push(u);
 			textureCoordData.push(v);
-			vertexPositionData.push(radius * x / 2.5);
-			vertexPositionData.push(radius * y / 2.5);
-			vertexPositionData.push(radius * z / 2.5);
+			vertexPositionData.push(x /4);
+			vertexPositionData.push(y /4);
+			vertexPositionData.push(z /4);
 		}
 	}
 
@@ -193,7 +234,7 @@ var sphereVertexIndexBuffer2;
 function initBuffers2() {
 	var latitudeBands = 30;
 	var longitudeBands = 30;
-	var radius = 13;
+
 
 	var vertexPositionData = [];
 
@@ -217,9 +258,9 @@ function initBuffers2() {
 			
 			textureCoordData.push(u);
 			textureCoordData.push(v);
-			vertexPositionData.push(radius * x / 4.5 - 30);
-			vertexPositionData.push(radius * y / 4.5 );
-			vertexPositionData.push(radius * z / 4.5);
+			vertexPositionData.push(x / 8 );
+			vertexPositionData.push(y / 8 );
+			vertexPositionData.push(z / 8);
 		}
 	}
 
@@ -259,19 +300,12 @@ function initBuffers2() {
 
 
 
-var earthAngle = 180;
+
+var currentAngle = 0.0;
 
 function drawScene1() {
 	
-
-	mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-
-	mat4.identity(mvMatrix);
-
-	mat4.translate(mvMatrix, [0, 0, -40]);
-	mat4.rotate(mvMatrix, degToRad(23.4), [1, 0, -1]);
-	mat4.rotate(mvMatrix, degToRad(earthAngle), [0, 1, 0]);
-
+	modelMatrix.setRotate(currentAngle,0,0,1);
 	gl.activeTexture(gl.TEXTURE0);
 	gl.bindTexture(gl.TEXTURE_2D, earthColorMapTexture);
 	gl.uniform1i(shaderProgram.colorMapSamplerUniform, 0);
@@ -289,20 +323,11 @@ function drawScene1() {
 }
 
 function drawScene2() {
-	// gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-	// gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-	mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-
-	mat4.identity(mvMatrix);
-
-	mat4.translate(mvMatrix, [0, 0, -40]);
-	mat4.rotate(mvMatrix, degToRad(23.4), [1, 0, -1]);
-	mat4.rotate(mvMatrix, degToRad(earthAngle), [0, 1, 0]);
-
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, earthColorMapTexture);
-	gl.uniform1i(shaderProgram.colorMapSamplerUniform, 0);
+	modelMatrix.rotate(currentAngle,0,0,1);
+	modelMatrix.translate(0.8,0,0);
+	gl.activeTexture(gl.TEXTURE1);
+	gl.bindTexture(gl.TEXTURE_2D, moonColorMapTexture);
+	gl.uniform1i(shaderProgram.colorMapSamplerUniform, 1);
 
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer2);
@@ -317,16 +342,14 @@ function drawScene2() {
 }
 
 
-var lastTime = 0;
+var lastTime = Date.now();
 
-function animate() {
-	var timeNow = new Date().getTime();
-	if (lastTime != 0) {
-		var elapsed = timeNow - lastTime;
-
-		earthAngle += 0.05 * elapsed;
-	}
+function animate(angle) {
+	var timeNow = Date.now();
+	var elapsed = timeNow - lastTime;
 	lastTime = timeNow;
+	var newAngle = angle +(ANGLE_STEP * elapsed)/1000.0;
+	return newAngle%360;
 }
 
 function tick() {
@@ -335,6 +358,7 @@ function tick() {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	drawScene1();
 	drawScene2();
-	animate();
+	currentAngle = animate(currentAngle);
 }
+
 
