@@ -68,6 +68,7 @@ var scale_X = 0.5,scale_Y = 0.5,scale_Z=0.5;
 function main() {
 	// Retrieve <canvas> element
 	var canvas = document.getElementById('webgl');
+
 	//Nhận bối cảnh kết xuất cho WebGL
 	gl = getWebGLContext(canvas);
 
@@ -108,7 +109,7 @@ function main() {
 	}
 
 	//Su kien chuot
-	canvas.onmousedown = function (ev) {  mouseDrag(ev, canvas); };
+	 canvas.onmousedown = function (ev) {  mouseDrag(ev, canvas); };
 	canvas.onmousemove = function (ev) {  mouseDrag(ev, canvas); };
 	document.onmouseup = function (ev) {  mouseDrag(ev, canvas); };
   
@@ -137,12 +138,7 @@ function main() {
 	shaderProgram. u_AmbientLight = gl.getUniformLocation(shaderProgram, 'u_AmbientLight');
 	
 	
-	// Thiet lap light color (white)
-	gl.uniform3f(shaderProgram.u_LightColor, 0.8, 0.8, 0.8);
-	// Đặt hướng ánh sáng (trong tọa độ thế giới)
-	gl.uniform3f(shaderProgram.u_LightDirection, 5.0, 8.0, 7.0);
-	// Đặt ánh sáng xung quanh
-	gl.uniform3f(shaderProgram.u_AmbientLight, 0.2, 0.2, 0.2);
+	
 	  
 	initBuffers1();
 	initBuffers2();
@@ -443,7 +439,39 @@ function tick() {
 	drawScene1();
 	drawScene2();
 	currentAngle = animate(currentAngle);
+	var speed = document.getElementById('speed');
+
+	speed.innerHTML = 'Tốc Độ : ' +ANGLE_STEP + '/s';
+
+	var scale = document.getElementById('scale');
+
+	scale.innerHTML = 'Kích Thước : x' + scale_X;
+
+	var lookat = document.getElementById('lookat');
+
+	lookat.innerHTML = `Tọa độ điểm nhìn : ${Math.round(D * Math.cos(a) * Math.cos(b))},
+		${Math.round(D * Math.cos(b))},
+		${Math.round(D * Math.cos(a) * Math.sin(b))}`;
+	
+	var colorR = document.getElementById('colorR');
+	var colorG = document.getElementById('colorG');
+	var colorB = document.getElementById('colorB');
+	var directionX = document.getElementById('directionX');
+	var directionY = document.getElementById('directionY');
+	var directionZ = document.getElementById('directionZ');
+	var ambientR = document.getElementById('ambientR');
+	var ambientG = document.getElementById('ambientG');
+	var ambientB = document.getElementById('ambientB');
+	console.log(colorR.value);
+
+	// Thiet lap light color (white)
+	gl.uniform3f(shaderProgram.u_LightColor, colorR.value, colorG.value, colorB.value);
+	// Đặt hướng ánh sáng (trong tọa độ thế giới)
+	gl.uniform3f(shaderProgram.u_LightDirection, directionX.value, directionY.value, directionZ.value);
+	// Đặt ánh sáng xung quanh
+	gl.uniform3f(shaderProgram.u_AmbientLight, ambientR.value, ambientG.value, ambientB.value);
 }
+
 
 function initArrayBuffer(attribute, data, type, num) {
 	// Tạo một đối tượng đệm
@@ -508,7 +536,6 @@ function mouseDrag(ev, canvas) {
 		if (g_isDragging == true) {
 			a = a_origin + (y - y_origin) * -1.5;
 			b = b_origin - (x - x_origin) * -1.5;
-			standardize();
 		}
 		break;
 		case 'wheel':

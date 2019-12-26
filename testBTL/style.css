@@ -7,10 +7,25 @@ canvas{
     top: -10px;
 }
 
-.speed{
+#speed{
     color: white;
-    position: relative;
-    top: -40px;
+    position: absolute;
+    top: 10px;
+    left:10px;
+}
+
+#scale{
+    color: white;
+    position: absolute;
+    top: 30px;
+    left:10px;
+}
+
+#lookat{
+    color: white;
+    position: absolute;
+    top: 50px;
+    left:10px;
 }
 
 
