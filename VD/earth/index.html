@@ -11,33 +11,78 @@
     precision mediump float;
 
     varying vec2 vTextureCoord;
+    varying vec3 vTransformedNormal;
+    varying vec4 vPosition;
+
+    uniform bool uUseColorMap;
+    uniform bool uUseSpecularMap;
+    uniform bool uUseLighting;
+
+    uniform vec3 uAmbientColor;
+
+    uniform vec3 uPointLightingLocation;
+    uniform vec3 uPointLightingSpecularColor;
+    uniform vec3 uPointLightingDiffuseColor;
 
     uniform sampler2D uColorMapSampler;
+    uniform sampler2D uSpecularMapSampler;
 
 
     void main(void) {
-        vec3 lightWeighting = vec3(1.0, 1.0, 1.0);
+        vec3 lightWeighting;
+        if (!uUseLighting) {
+            lightWeighting = vec3(1.0, 1.0, 1.0);
+        } else {
+            vec3 lightDirection = normalize(uPointLightingLocation - vPosition.xyz);
+            vec3 normal = normalize(vTransformedNormal);
 
-        vec4 fragmentColor = texture2D(uColorMapSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        
+            float specularLightWeighting = 0.0;
+            float shininess = 32.0;
+            if (uUseSpecularMap) {
+                shininess = texture2D(uSpecularMapSampler, vec2(vTextureCoord.s, vTextureCoord.t)).r * 255.0;
+            }
+            if (shininess < 255.0) {
+                vec3 eyeDirection = normalize(-vPosition.xyz);
+                vec3 reflectionDirection = reflect(-lightDirection, normal);
+
+                specularLightWeighting = pow(max(dot(reflectionDirection, eyeDirection), 0.0), shininess);
+            }
+
+            float diffuseLightWeighting = max(dot(normal, lightDirection), 0.0);
+            lightWeighting = uAmbientColor
+                + uPointLightingSpecularColor * specularLightWeighting
+                + uPointLightingDiffuseColor * diffuseLightWeighting;
+        }
+
+        vec4 fragmentColor;
+        if (uUseColorMap) {
+            fragmentColor = texture2D(uColorMapSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        } else {
+            fragmentColor = vec4(1.0, 1.0, 1.0, 1.0);
+        }
         gl_FragColor = vec4(fragmentColor.rgb * lightWeighting, fragmentColor.a);
     }
 </script>
 
 <script id="per-fragment-lighting-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition;
-
+    attribute vec3 aVertexNormal;
     attribute vec2 aTextureCoord;
 
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
+    uniform mat3 uNMatrix;
 
     varying vec2 vTextureCoord;
+    varying vec3 vTransformedNormal;
+    varying vec4 vPosition;
 
 
     void main(void) {
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
+        gl_Position = uPMatrix * vPosition;
         vTextureCoord = aTextureCoord;
+        vTransformedNormal = uNMatrix * aVertexNormal;
     }
 </script>
 
@@ -115,14 +160,24 @@
         shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
         gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
+        shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+        gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+
         shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
         gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
         shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
-        
+        shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
         shaderProgram.colorMapSamplerUniform = gl.getUniformLocation(shaderProgram, "uColorMapSampler");
-
+        shaderProgram.specularMapSamplerUniform = gl.getUniformLocation(shaderProgram, "uSpecularMapSampler");
+        shaderProgram.useColorMapUniform = gl.getUniformLocation(shaderProgram, "uUseColorMap");
+        shaderProgram.useSpecularMapUniform = gl.getUniformLocation(shaderProgram, "uUseSpecularMap");
+        shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
+        shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
+        shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
+        shaderProgram.pointLightingSpecularColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor");
+        shaderProgram.pointLightingDiffuseColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor");
     }
 
 
@@ -139,6 +194,7 @@
 
 
     var earthColorMapTexture;
+    var earthSpecularMapTexture;
 
     function initTextures() {
         earthColorMapTexture = gl.createTexture();
@@ -147,6 +203,13 @@
             handleLoadedTexture(earthColorMapTexture)
         }
         earthColorMapTexture.image.src = "earth.jpg";
+
+        earthSpecularMapTexture = gl.createTexture();
+        earthSpecularMapTexture.image = new Image();
+        earthSpecularMapTexture.image.onload = function () {
+            handleLoadedTexture(earthSpecularMapTexture)
+        }
+        earthSpecularMapTexture.image.src = "earth-specular.gif";
     }
 
 
@@ -183,7 +246,7 @@
     }
 
 
-
+    var sphereVertexNormalBuffer;
     var sphereVertexTextureCoordBuffer;
     var sphereVertexPositionBuffer;
     var sphereVertexIndexBuffer;
@@ -194,7 +257,7 @@
         var radius = 13;
 
         var vertexPositionData = [];
-
+        var normalData = [];
         var textureCoordData = [];
         for (var latNumber=0; latNumber <= latitudeBands; latNumber++) {
             var theta = latNumber * Math.PI / latitudeBands;
@@ -212,7 +275,9 @@
                 var u = 1 - (longNumber / longitudeBands);
                 var v = 1 - (latNumber / latitudeBands);
 
-                
+                normalData.push(x);
+                normalData.push(y);
+                normalData.push(z);
                 textureCoordData.push(u);
                 textureCoordData.push(v);
                 vertexPositionData.push(radius * x);
@@ -235,6 +300,12 @@
                 indexData.push(first + 1);
             }
         }
+
+        sphereVertexNormalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexNormalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalData), gl.STATIC_DRAW);
+        sphereVertexNormalBuffer.itemSize = 3;
+        sphereVertexNormalBuffer.numItems = normalData.length / 3;
 
         sphereVertexTextureCoordBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexTextureCoordBuffer);
@@ -264,6 +335,44 @@
 
         mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
 
+        var useColorMap = document.getElementById("color-map").checked;
+        gl.uniform1i(shaderProgram.useColorMapUniform, useColorMap);
+
+        var useSpecularMap = document.getElementById("specular-map").checked;
+        gl.uniform1i(shaderProgram.useSpecularMapUniform, useSpecularMap);
+
+        var lighting = document.getElementById("lighting").checked;
+        gl.uniform1i(shaderProgram.useLightingUniform, lighting);
+        if (lighting) {
+            gl.uniform3f(
+                shaderProgram.ambientColorUniform,
+                parseFloat(document.getElementById("ambientR").value),
+                parseFloat(document.getElementById("ambientG").value),
+                parseFloat(document.getElementById("ambientB").value)
+            );
+
+            gl.uniform3f(
+                shaderProgram.pointLightingLocationUniform,
+                parseFloat(document.getElementById("lightPositionX").value),
+                parseFloat(document.getElementById("lightPositionY").value),
+                parseFloat(document.getElementById("lightPositionZ").value)
+            );
+
+            gl.uniform3f(
+                shaderProgram.pointLightingSpecularColorUniform,
+                parseFloat(document.getElementById("specularR").value),
+                parseFloat(document.getElementById("specularG").value),
+                parseFloat(document.getElementById("specularB").value)
+            );
+
+            gl.uniform3f(
+                shaderProgram.pointLightingDiffuseColorUniform,
+                parseFloat(document.getElementById("diffuseR").value),
+                parseFloat(document.getElementById("diffuseG").value),
+                parseFloat(document.getElementById("diffuseB").value)
+            );
+        }
+
         mat4.identity(mvMatrix);
 
         mat4.translate(mvMatrix, [0, 0, -40]);
@@ -274,12 +383,18 @@
         gl.bindTexture(gl.TEXTURE_2D, earthColorMapTexture);
         gl.uniform1i(shaderProgram.colorMapSamplerUniform, 0);
 
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, earthSpecularMapTexture);
+        gl.uniform1i(shaderProgram.specularMapSamplerUniform, 1);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, sphereVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexTextureCoordBuffer);
         gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, sphereVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexNormalBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, sphereVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer);
         setMatrixUniforms();
@@ -327,9 +442,53 @@
 
 
 <body onload="webGLStart();">
+    <a href="http://learningwebgl.com/blog/?p=1778">&lt;&lt; Back to Lesson 15</a><br />
 
-    <canvas id="lesson15-canvas" style="border: none;" width="650" height="650"></canvas><br />
+    <canvas id="lesson15-canvas" style="border: none;" width="500" height="500"></canvas><br />
 
+    <input type="checkbox" id="color-map" checked /> Use color map<br/>
+    <input type="checkbox" id="specular-map" checked /> Use specular map<br/>
+    <input type="checkbox" id="lighting" checked /> Use lighting<br/>
+
+    <h2>Point light:</h2>
+
+    <table style="border: 0; padding: 10px;">
+        <tr>
+            <td><b>Location:</b>
+            <td>X: <input type="text" id="lightPositionX" value="-10.0" />
+            <td>Y: <input type="text" id="lightPositionY" value="4.0" />
+            <td>Z: <input type="text" id="lightPositionZ" value="-20.0" />
+        </tr>
+        <tr>
+            <td><b>Specular colour:</b>
+            <td>R: <input type="text" id="specularR" value="5.0" />
+            <td>G: <input type="text" id="specularG" value="5.0" />
+            <td>B: <input type="text" id="specularB" value="5.0" />
+        </tr>
+        <tr>
+            <td><b>Diffuse colour:</b>
+            <td>R: <input type="text" id="diffuseR" value="0.8" />
+            <td>G: <input type="text" id="diffuseG" value="0.8" />
+            <td>B: <input type="text" id="diffuseB" value="0.8" />
+        </tr>
+    </table>
+
+    <h2>Ambient light:</h2>
+
+    <table style="border: 0; padding: 10px;">
+        <tr>
+            <td><b>Colour:</b>
+            <td>R: <input type="text" id="ambientR" value="0.4" />
+            <td>G: <input type="text" id="ambientG" value="0.4" />
+            <td>B: <input type="text" id="ambientB" value="0.4" />
+        </tr>
+    </table>
+    <br/>
+
+    Earth texture courtesy of <a href="http://www.esa.int/esaEO/SEMGSY2IU7E_index_0.html">the European Space Agency/Envisat</a>.<br/>
+    <br/>
+
+    <a href="http://learningwebgl.com/blog/?p=1778">&lt;&lt; Back to Lesson 15</a><br />
 </body>
 
 </html>

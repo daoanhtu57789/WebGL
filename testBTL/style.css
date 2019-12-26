@@ -1,0 +1,16 @@
+body {
+    margin: 0px;
+}
+
+canvas{
+    position: relative;
+    top: -10px;
+}
+
+.speed{
+    color: white;
+    position: relative;
+    top: -40px;
+}
+
+

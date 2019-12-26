@@ -1,152 +1,181 @@
 var VSHADER_SOURCE =
 `
-	attribute vec3 aVertexPosition;
+	attribute vec3 aVertexPosition; //toa do diem
 
-	attribute vec2 aTextureCoord;
+	attribute vec2 aTextureCoord; //Toa do ket cau truyen vao
+	uniform mat4 u_MvpMatrix;  //Ma tran dich chuyen
+	uniform mat4 u_ViewMatrix; //Ma tran dinh huong quan sat 
+	uniform mat4 u_ProjMatrix; //Ma tran pham vi quan sat
+	varying vec2 vTextureCoord; //Toa do ket cau truyen sang FSHADER_SOURCE
 
-	uniform mat4 u_ModelMatrix;
-	uniform mat4 u_ViewMatrix;
-	uniform mat4 u_CameraMatrix;
 
-	varying vec2 vTextureCoord;
+	uniform vec3 u_LightColor; //Mau anh sang
+	attribute vec4 a_Normal;
+	uniform vec3 u_LightDirection; //Toa do thuc chuan hoa
 
+	uniform vec3 u_AmbientLight;  //Mau anh sang xung quanh
+
+	varying vec3 v_Color;  //gia tri de truyen sang cho FSHADER
 	void main(void) {
-		gl_Position = u_ViewMatrix * u_ModelMatrix *  vec4(aVertexPosition, 1.0);
+		gl_Position = u_ProjMatrix * u_ViewMatrix * u_MvpMatrix *  vec4(aVertexPosition, 1.0);
+
 		vTextureCoord = aTextureCoord;
+		//Thiet lap mau anh sang
+		vec4 color = vec4(1.0, 1.0, 1.0, 1.0);
+		//Tao do dai phap tuyen 1.0
+		vec3 normal = normalize(vec3(a_Normal));
+
+		//Chuan hoa
+		vec3 lightDirection = normalize(u_LightDirection);
+
+		//Tich vo huong cua anh sang va huong be mat
+		float nDotL = max(dot(lightDirection, normal), 0.0);
+
+		//Mau do phan chieu khuech tan
+		vec3 diffuse = u_LightColor * color.rgb * nDotL;
+
+		//Mau cua anh sang xung quanh
+		vec3 ambient = u_AmbientLight * color.rgb;
+
+		//Truyen mau sang FSHADER_SOURCE
+		v_Color = vec3(diffuse + ambient);
 	}
 `;
 
 var FSHADER_SOURCE =
 `
 	precision mediump float;
-
+	//Lay du lieu cua toa do ket cau
 	varying vec2 vTextureCoord;
 
+	//Bien de truy cap ket cau gan voi gl.TEXTURE_2D
 	uniform sampler2D uColorMapSampler;
 
-
+	varying vec3 v_Color;
 	void main(void) {
-		vec3 lightWeighting = vec3(1.0, 1.0, 1.0);
 
 		vec4 fragmentColor = texture2D(uColorMapSampler, vec2(vTextureCoord.s, vTextureCoord.t));
 		
-		gl_FragColor = vec4(fragmentColor.rgb * lightWeighting, fragmentColor.a);
+		//Truy xuat mau cua anh ket cau
+		gl_FragColor = vec4(fragmentColor.rgb * v_Color, fragmentColor.a);
 	}
 `;
-
+//Tao ca bien toan cuc
 var gl;
 var shaderProgram;
 var ANGLE_STEP = 45;
-var scale_X = 1.0,scale_Y = 1.0,scale_Z=1.0,lookAt_X = 0.0,lookAt_Y = 0.0,lookAt_Z = 1.0;
-var count = 0;
+var scale_X = 0.5,scale_Y = 0.5,scale_Z=0.5;
 function main() {
 	// Retrieve <canvas> element
 	var canvas = document.getElementById('webgl');
-	// Get the rendering context for WebGL
+	//Nhận bối cảnh kết xuất cho WebGL
 	gl = getWebGLContext(canvas);
+
+	//Lay chieu dai va chieu rong cua canvas
 	gl.viewportWidth = canvas.width;
-    gl.viewportHeight = canvas.height;
+	gl.viewportHeight = canvas.height;
+	
+	//Kiemt tra xem nhan duoc ko
 	if (!gl) {
 	  console.log('Failed to get the rendering context for WebGL');
 	  return;
 	}
-
+	//Su kien ban phim
 	document.onkeydown = ev => {
 		switch (ev.keyCode) 
 		{ 
 			case 37: //mui ten trai
-				count = (count+1)%3;
-				console.log(count);
-				if(count == 0){
-					lookAt_X = 0.0;
-					lookAt_Y = 0.0;
-					lookAt_Z = 1.0;
-				}else if(count == 1){
-					lookAt_X = 0.0;
-					lookAt_Y = 1.0;
-					lookAt_Z = 0.0;
-				}else if(count == 2) {
-					lookAt_X = 1.0;
-					lookAt_Y = 0.0;
-					lookAt_Z = 0.0;
-				}
+				
+				ANGLE_STEP -= 5;
 				break; 
 			case 38: //mui ten tren
-				scale_X += 0.3;
-				scale_Y += 0.3;
-				scale_Z += 0.3; 
+				scale_X += 0.2;
+				scale_Y += 0.2;
+				scale_Z += 0.2; 
 				break; 
 			case 39: //mui ten phai
-				count = (count - 1.0)%3;
-				//count = Math.abs(count);
-				console.log(count);
-				if(count == -0){
-					lookAt_X = 0.0;
-					lookAt_Y = 0.0;
-					lookAt_Z = 1.0;
-				}else if(count == -1){
-					lookAt_X = 0.0;
-					lookAt_Y = 1.0;
-					lookAt_Z = 0.0;
-				}else if(count == -2){
-					lookAt_X = 1.0;
-					lookAt_Y = 0.0;
-					lookAt_Z = 0.0;
-				}
+				
+				ANGLE_STEP += 5;
 				break; 
 			case 40: //mui ten duoi
-				scale_X -= 0.3;
-				scale_Y -= 0.3;
-				scale_Z -= 0.3; 
+				scale_X -= 0.2;
+				scale_Y -= 0.2;
+				scale_Z -= 0.2; 
 				break; 
 			default: 
 				break; 
 		} 
 	}
+
+	//Su kien chuot
+	canvas.onmousedown = function (ev) {  mouseDrag(ev, canvas); };
+	canvas.onmousemove = function (ev) {  mouseDrag(ev, canvas); };
+	document.onmouseup = function (ev) {  mouseDrag(ev, canvas); };
   
 	//tạo chương trình
 	shaderProgram = createProgram(gl, VSHADER_SOURCE, FSHADER_SOURCE);
-	//lấy các thuộc tính trong chương trình
+	//Su dung chuong trinh
 	gl.useProgram(shaderProgram);
-
+	
+	//lấy các thuộc tính trong chương trình
 	shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
 	gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
 	shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
 	gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
-
-	shaderProgram.u_ModelMatrix = gl.getUniformLocation(shaderProgram, "u_ModelMatrix");
+	//Lay cac bien dong nhat
+	shaderProgram.u_MvpMatrix = gl.getUniformLocation(shaderProgram, "u_MvpMatrix");
 
 	shaderProgram.u_ViewMatrix = gl.getUniformLocation(shaderProgram, "u_ViewMatrix");
 
-	shaderProgram.colorMapSamplerUniform = gl.getUniformLocation(shaderProgram, "uColorMapSampler");
+	shaderProgram.u_ProjMatrix = gl.getUniformLocation(shaderProgram, "u_ProjMatrix");
 
+	shaderProgram.colorMapSamplerUniform = gl.getUniformLocation(shaderProgram, "uColorMapSampler");
+	//lay cac dong nhat cua anh sang
+	shaderProgram.u_LightColor = gl.getUniformLocation(shaderProgram, 'u_LightColor');
+	shaderProgram.u_LightDirection = gl.getUniformLocation(shaderProgram, 'u_LightDirection');
+	shaderProgram. u_AmbientLight = gl.getUniformLocation(shaderProgram, 'u_AmbientLight');
 	
+	
+	// Thiet lap light color (white)
+	gl.uniform3f(shaderProgram.u_LightColor, 0.8, 0.8, 0.8);
+	// Đặt hướng ánh sáng (trong tọa độ thế giới)
+	gl.uniform3f(shaderProgram.u_LightDirection, 5.0, 8.0, 7.0);
+	// Đặt ánh sáng xung quanh
+	gl.uniform3f(shaderProgram.u_AmbientLight, 0.2, 0.2, 0.2);
+	  
 	initBuffers1();
 	initBuffers2();
 	initTextures();
 
-	gl.clearColor(0.0, 0.0, 0.0, 1.0);
+	// gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.enable(gl.DEPTH_TEST);
 
 	tick();
 }
 
+//Ham xu ly ket cau
 function handleLoadedTexture(texture) {
+	//Dao nguoc truc y cua anh
 	gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+	
+	//Gan doi tuong ket cau voi target
 	gl.bindTexture(gl.TEXTURE_2D, texture);
+
+	//Thiet lap anh ket cau
 	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+	
+	//Thiet lap cac bien ket cau
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 	gl.generateMipmap(gl.TEXTURE_2D);
-
-	gl.bindTexture(gl.TEXTURE_2D, null);
 }
 
 
 var earthColorMapTexture;
 var moonColorMapTexture;
-var spaceColorMapTexture
+
+//Tao cac doi tuong anh ban dau
 function initTextures() {
 	earthColorMapTexture = gl.createTexture();
 	earthColorMapTexture.image = new Image();
@@ -163,36 +192,31 @@ function initTextures() {
 
 	moonColorMapTexture.image.src = "moon.gif";
 	
-
-
-	spaceColorMapTexture = gl.createTexture();
-    spaceColorMapTexture.image = new Image();
-    spaceColorMapTexture.image.onload = function () {
-            handleLoadedTexture(spaceColorMapTexture)
-        }
-
-	spaceColorMapTexture.image.src = "sao.jpg";
-	console.log(spaceColorMapTexture.image);
 }
-
+//tạo các ma trận đơn vị 1111
+var projMatrix = new Matrix4();
 var viewMatrix = new Matrix4();
+var mvpMatrix= new Matrix4();
 
-var modelMatrix= new Matrix4();
-
-// Ma trận biến đổi tọa độ
+//Ham thiet lap va truyen ma trận biến đổi tọa độ
 function setMatrixUniforms() {
-	viewMatrix.setPerspective(30, gl.viewportWidth / gl.viewportHeight, 1.0, 100.0);
-	viewMatrix.lookAt( 1.0 , 0.0, 5.0, 0.0, 0.0,0.0, lookAt_X, lookAt_Y, lookAt_Z);
-	console.log(lookAt_X, lookAt_Y, lookAt_Z);
-	gl.uniformMatrix4fv(shaderProgram.u_ModelMatrix,false,modelMatrix.elements);
+	//Ma tran diem nhin
+	viewMatrix.setLookAt(D * Math.cos(a) * Math.cos(b),
+      D * Math.cos(b),
+	  D * Math.cos(a) * Math.sin(b), 0.0, 0.0, 0.0, 0, 0, 1); // var VIEW_REDUIS = 2
+	//Ma tran khoi quan sat
+	projMatrix.setPerspective(30, gl.viewportWidth / gl.viewportHeight, 1.0, 100.0);
+	//truyen du lieu
+	gl.uniformMatrix4fv(shaderProgram.u_ProjMatrix,false,projMatrix.elements);
+	gl.uniformMatrix4fv(shaderProgram.u_MvpMatrix,false,mvpMatrix.elements);
 	gl.uniformMatrix4fv(shaderProgram.u_ViewMatrix,false,viewMatrix.elements);
 
 }
 
-var sphereVertexTextureCoordBuffer1;
 var sphereVertexPositionBuffer1;
 var sphereVertexIndexBuffer1;
-
+var sphereVertexNormalBuffer1;
+//Ham khoi tao bo dem du lieu cua trai dat
 function initBuffers1() {
 	var latitudeBands = 30;
 	var longitudeBands = 30;
@@ -216,9 +240,9 @@ function initBuffers1() {
 			var u = 1 - (longNumber / longitudeBands);
 			var v = 1 - (latNumber / latitudeBands);
 
-			
 			textureCoordData.push(u);
 			textureCoordData.push(v);
+
 			vertexPositionData.push(x /4);
 			vertexPositionData.push(y /4);
 			vertexPositionData.push(z /4);
@@ -240,29 +264,35 @@ function initBuffers1() {
 		}
 	}
 
+	//Truyen du lieu cua ket cau
 	sphereVertexTextureCoordBuffer1 = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexTextureCoordBuffer1);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordData), gl.STATIC_DRAW);
 	sphereVertexTextureCoordBuffer1.itemSize = 2;
 	sphereVertexTextureCoordBuffer1.numItems = textureCoordData.length / 2;
 
+	//Truyen du lieu diem
 	sphereVertexPositionBuffer1 = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer1);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositionData), gl.STATIC_DRAW);
 	sphereVertexPositionBuffer1.itemSize = 3;
 	sphereVertexPositionBuffer1.numItems = vertexPositionData.length / 3;
 
+	//Truyen du lieu cho chi so bo dem doi tuong
 	sphereVertexIndexBuffer1 = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer1);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STREAM_DRAW);
 	sphereVertexIndexBuffer1.itemSize = 1;
 	sphereVertexIndexBuffer1.numItems = indexData.length;
+	
+	if (!initArrayBuffer('a_Normal', new Float32Array(vertexPositionData), gl.FLOAT, 3))  return -1;
 }
 
 var sphereVertexTextureCoordBuffer2;
 var sphereVertexPositionBuffer2;
 var sphereVertexIndexBuffer2;
 
+//Ham khoi tao bo dem du lieu cua mat trang
 function initBuffers2() {
 	var latitudeBands = 30;
 	var longitudeBands = 30;
@@ -287,7 +317,6 @@ function initBuffers2() {
 			var u = 1 - (longNumber / longitudeBands);
 			var v = 1 - (latNumber / latitudeBands);
 
-			
 			textureCoordData.push(u);
 			textureCoordData.push(v);
 			vertexPositionData.push(x / 8 );
@@ -311,40 +340,48 @@ function initBuffers2() {
 		}
 	}
 
+	//Truyen du lieu cua ket cau
 	sphereVertexTextureCoordBuffer2 = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexTextureCoordBuffer2);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordData), gl.STATIC_DRAW);
 	sphereVertexTextureCoordBuffer2.itemSize = 2;
 	sphereVertexTextureCoordBuffer2.numItems = textureCoordData.length / 2;
 
+	//Truyen du lieu diem
 	sphereVertexPositionBuffer2 = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer2);
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositionData), gl.STATIC_DRAW);
 	sphereVertexPositionBuffer2.itemSize = 3;
 	sphereVertexPositionBuffer2.numItems = vertexPositionData.length / 3;
 
+	//Truyen du lieu cho chi so bo dem doi tuong
 	sphereVertexIndexBuffer2 = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer2);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STREAM_DRAW);
 	sphereVertexIndexBuffer2.itemSize = 1;
 	sphereVertexIndexBuffer2.numItems = indexData.length;
+
+	if (!initArrayBuffer('a_Normal', new Float32Array(vertexPositionData), gl.FLOAT, 3))  return -1;
 }
-// var vertexTexCoordBuffer;
-
-
 
 var currentAngle = 0.0;
 var moonaAngle=0.0;
 
+//Ham ve trai dat
 function drawScene1() {
+	//Xu ly ma tran di chuyen cua trai dat
+	mvpMatrix.setRotate(currentAngle,0,0,1);
+	mvpMatrix.scale(scale_X,scale_Y,scale_Z);
 
-	modelMatrix.setRotate(currentAngle,0,0,1);
-	modelMatrix.scale(scale_X,scale_Y,scale_Z);
+	//Kich hoa ket cau don vi 0
 	gl.activeTexture(gl.TEXTURE0);
+
+	//Gan doi tuong ket cau voi trai dat
 	gl.bindTexture(gl.TEXTURE_2D, earthColorMapTexture);
+
 	gl.uniform1i(shaderProgram.colorMapSamplerUniform, 0);
 
-
+	//Gan bo dem vao cac bien
 	gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer1);
 	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, sphereVertexPositionBuffer1.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -352,20 +389,28 @@ function drawScene1() {
 	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, sphereVertexTextureCoordBuffer1.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer1);
+	//Goi ham thiet lap va bien doi toa do
 	setMatrixUniforms();
 	gl.drawElements(gl.TRIANGLES, sphereVertexIndexBuffer1.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
+//Ham ve mat trang
 function drawScene2() {
 
-	modelMatrix.setRotate(currentAngle, 0, 0, 1);
-	modelMatrix.scale(scale_X,scale_Y,scale_Z);
-	modelMatrix.translate(1.5, 0.0, 0.0)
+	//Xu ly ma tran di chuyen cua mat trang
+	mvpMatrix.setRotate(currentAngle, 0, 0, 1);
+	mvpMatrix.scale(scale_X,scale_Y,scale_Z);
+	mvpMatrix.translate(1.5, 0.0, 0.0)
+
+	//Kich hoa ket cau don vi 1
 	gl.activeTexture(gl.TEXTURE1);
+
+	//Gan doi tuong ket cau voi mat trang
 	gl.bindTexture(gl.TEXTURE_2D, moonColorMapTexture);
+
 	gl.uniform1i(shaderProgram.colorMapSamplerUniform, 1);
 
-
+	//Gan bo dem vao cac bien	
 	gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer2);
 	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, sphereVertexPositionBuffer2.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -373,63 +418,22 @@ function drawScene2() {
 	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, sphereVertexTextureCoordBuffer2.itemSize, gl.FLOAT, false, 0, 0);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphereVertexIndexBuffer2);
+
+	//Goi ham thiet lap va bien doi toa do
 	setMatrixUniforms();
 	gl.drawElements(gl.TRIANGLES, sphereVertexIndexBuffer2.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
-function drawScene3() {
-	modelMatrix.setTranslate(0,0,-4);
-
-	var verticesTexCoords = new Float32Array([
-		// Vertex coordinates, texture coordinate
-		-5,  5,   0.0, 1.0,
-		-5, -5,   0.0, 0.0,
-		 5,  5,   1.0, 1.0,
-		 5, -5,   1.0, 0.0,
-	]);
-	// Create the buffer object
-	var vertexTexCoordBuffer = gl.createBuffer();
-
-	// Bind the buffer object to target
-	gl.bindBuffer(gl.ARRAY_BUFFER, vertexTexCoordBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, verticesTexCoords, gl.STATIC_DRAW);
-
-	var FSIZE = verticesTexCoords.BYTES_PER_ELEMENT;
-	//Get the storage location of a_Position, assign and enable buffer
-	
-	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 2, gl.FLOAT, false, FSIZE * 4, 0);
-	gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);  // Enable the assignment of the buffer object
-
-	// Assign the buffer object to a_TexCoord variable
-	gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, 2, gl.FLOAT, false, FSIZE * 4, FSIZE * 2);
-	gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);  // Enable the assignment of the buffer object
-	
-	gl.activeTexture(gl.TEXTURE2);
-	gl.bindTexture(gl.TEXTURE_2D, spaceColorMapTexture);
-	gl.uniform1i(shaderProgram.colorMapSamplerUniform, 2);
-
-	setMatrixUniforms();
-	gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-}
-
-
-
 
 var lastTime = Date.now();
 
+//Ham cap nhat goc quay
 function animate(angle) {
 	var timeNow = Date.now();
 	var elapsed = timeNow - lastTime;
 	lastTime = timeNow;
 	var newAngle = angle +(ANGLE_STEP * elapsed)/1000.0;
 	return newAngle%360;
-}
-function animate2(angle1) {
-	var timeNow = Date.now();
-	var elapsed = timeNow - lastTime;
-	lastTime = timeNow;
-	var newAngle1 = angle1 +(ANGLE_STEP1 * elapsed)/1000.0;
-	return newAngle1%360;
 }
 
 function tick() {
@@ -438,7 +442,80 @@ function tick() {
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	drawScene1();
 	drawScene2();
-	drawScene3();
 	currentAngle = animate(currentAngle);
-	
+}
+
+function initArrayBuffer(attribute, data, type, num) {
+	// Tạo một đối tượng đệm
+	var buffer = gl.createBuffer();
+	if (!buffer) {
+	  console.log('Failed to create the buffer object');
+	  return false;
+	}
+
+	// Viết ngày vào đối tượng đệm
+	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+	gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+
+	//Gán đối tượng đệm cho biến thuộc tính
+	shaderProgram.a_attribute = gl.getAttribLocation(shaderProgram, attribute);
+
+	if (shaderProgram.a_attribute < 0) {
+	  console.log('Failed to get the storage location of ' + shaderProgram.attribute);
+	  return false;
+	}
+	gl.vertexAttribPointer(shaderProgram.a_attribute, num, type, false, 0, 0);
+	// Cho phép gán đối tượng đệm cho biến thuộc tính
+	gl.enableVertexAttribArray(shaderProgram.a_attribute);
+  
+	gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  
+	return true;
+}
+
+var g_isDragging = false;
+
+var a = 30.0 * Math.PI / 360;
+var b = 0.0;
+
+var D=2;
+var x_origin = 0.0;
+var b_origin = 0.0;
+var y_origin = 0.0;
+var a_origin = 0.0;
+
+//Ham xu ly cac su kien chuot
+function mouseDrag(ev, canvas) {
+	var x = ev.clientX;
+	var y = ev.clientY;
+	var rect = ev.target.getBoundingClientRect(ev, canvas);
+
+	x = ((x - rect.left) - (canvas.height / 2)) / (canvas.height / 2);
+	y = ((canvas.width / 2) - (y - rect.top)) / (canvas.width / 2);
+
+	switch (ev.type) {
+		case 'mousedown':
+		g_isDragging = true;
+		x_origin = x;
+		b_origin = b;
+		y_origin = y;
+		a_origin = a;
+		break;
+		case 'mouseup':
+		g_isDragging = false;
+		break;
+		case 'mousemove':
+		if (g_isDragging == true) {
+			a = a_origin + (y - y_origin) * -1.5;
+			b = b_origin - (x - x_origin) * -1.5;
+			standardize();
+		}
+		break;
+		case 'wheel':
+		if (ev.wheelDelta < 0)
+			D += 2;
+		else
+			D = ((D - 2) > 0) ? (D - 2) : 2;
+		break;
+	}
 }
